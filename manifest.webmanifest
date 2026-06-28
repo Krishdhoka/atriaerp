@@ -1,0 +1,15 @@
+{
+  "name": "AtriaERP — Real Estate ERP",
+  "short_name": "AtriaERP",
+  "description": "Multi-company real estate ERP: CRM, inventory, payments, collections, Tally, GST/TDS, projects.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1729",
+  "theme_color": "#0f1729",
+  "icons": [
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

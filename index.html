@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AtriaERP — Real Estate ERP</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f1729" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AtriaERP" />
+  <link rel="apple-touch-icon" href="assets/icons/icon.svg" />
+  <link rel="icon" href="assets/icons/icon.svg" />
+  <script>
+    // Make any startup error visible on screen instead of a blank page.
+    window.addEventListener("error", function (e) {
+      try {
+        var d = document.getElementById("bootError");
+        if (!d) {
+          d = document.createElement("div"); d.id = "bootError";
+          d.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;background:#dc2626;color:#fff;padding:12px 16px;font:13px/1.5 Segoe UI,sans-serif;white-space:pre-wrap";
+          (document.body || document.documentElement).appendChild(d);
+        }
+        var f = (e.filename || "").split("/").pop();
+        d.textContent = "AtriaERP startup error:\n" + (e.message || e) + (f ? ("\nin " + f + ":" + (e.lineno || "")) : "") + "\n\nTip: hard-refresh with Ctrl+Shift+R.";
+      } catch (x) {}
+    });
+  </script>
+</head>
+<body>
+  <!-- Login screen (cloud mode only) -->
+  <div id="authScreen" class="auth-screen" hidden></div>
+
+  <div id="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="navToggle" class="icon-btn" title="Toggle menu">&#9776;</button>
+        <div class="brand">
+          <span class="brand-mark">A</span>
+          <div class="brand-text">
+            <strong>AtriaERP <span class="beta-badge">BETA</span></strong>
+            <small>Real Estate ERP</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-center">
+        <label class="ctx-select">
+          <span>Company</span>
+          <select id="companySelect"></select>
+        </label>
+        <label class="ctx-select">
+          <span>Project</span>
+          <select id="projectSelect"></select>
+        </label>
+      </div>
+
+      <div class="topbar-right">
+        <div class="global-search">
+          <input id="globalSearch" type="search" placeholder="Search anything…" autocomplete="off" />
+        </div>
+        <button class="btn sm primary" id="installBtn" style="display:none">⬇ Install App</button>
+        <button class="icon-btn" id="backupBtn" title="Backup / Restore">&#128190;</button>
+        <div class="user-chip" title="Signed in">
+          <span class="avatar">RK</span>
+          <div class="user-meta">
+            <strong id="userName">Rishabh</strong>
+            <small>Admin</small>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <nav id="navMenu"></nav>
+      <div class="sidebar-footer">
+        <div class="env-pill"><span class="dot"></span> Local data (this PC)</div>
+        <small>v0.9.1 Beta &middot; Cloud + Auto-deploy</small>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="content" id="content"></main>
+
+    <!-- Modal host -->
+    <div class="modal-backdrop" id="modalBackdrop" hidden>
+      <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+    </div>
+
+    <!-- Toasts -->
+    <div class="toast-host" id="toastHost"></div>
+  </div>
+
+  <!-- Scripts loaded as classic scripts so the app works by double-clicking (file://) with no server/build -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/cloud.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/schema.js"></script>
+  <script src="assets/js/seed.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/views.js"></script>
+  <script src="assets/js/integrations.js"></script>
+  <script src="assets/js/collections.js"></script>
+  <script src="assets/js/reports.js"></script>
+  <script src="assets/js/extras.js"></script>
+  <script src="assets/js/workflows.js"></script>
+  <script src="assets/js/letters.js"></script>
+  <script src="assets/js/verify.js"></script>
+  <script src="assets/js/feedback.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/app.js"></script>
+
+  <!-- Beta: no service worker. Actively clean up any old one that may be serving a stale cache. -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister(); });
+      }).catch(function () {});
+      if (window.caches) { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }).catch(function () {}); }
+    }
+  </script>
+</body>
+</html>
