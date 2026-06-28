@@ -45,9 +45,18 @@
       var scopeNote = def.scope === "project" ? (Store.currentProject() ? Store.currentProject().name : "—")
         : def.scope === "company" ? Store.currentCompany().name : "All";
 
+      var actions = U.el('<div class="row-flex"></div>');
+      if (global.DataIO) {
+        var impBtn = U.el('<button class="btn" title="Bulk import from Excel/CSV">⬆ Import</button>');
+        impBtn.onclick = function () { DataIO.openImport(entityKey, draw); };
+        var expBtn = U.el('<button class="btn" title="Export to CSV/Excel">⬇ Export</button>');
+        expBtn.onclick = function () { DataIO.exportEntity(entityKey); };
+        actions.appendChild(impBtn); actions.appendChild(expBtn);
+      }
       var addBtn = U.el('<button class="btn primary">+ New ' + U.esc(def.singular) + "</button>");
       addBtn.onclick = function () { openForm(null); };
-      mount.appendChild(U.pageHead(def.title, def.desc + "  •  Scope: " + scopeNote, addBtn));
+      actions.appendChild(addBtn);
+      mount.appendChild(U.pageHead(def.title, def.desc + "  •  Scope: " + scopeNote, actions));
 
       if (def.tally) mount.appendChild(tallyBanner(entityKey, draw));
 
