@@ -8,6 +8,7 @@
     dashboard: function (m) { Views.renderDashboard(m); },
     collections: function (m) { Collections.render(m); },
     reports: function (m) { Reports.renderReports(m); },
+    group: function (m) { Reports.renderGroup(m); },
     approvals: function (m) { Reports.renderApprovals(m); },
     customer360: function (m) { Extras.renderCustomer360(m); },
     booking: function (m) { Workflows.renderBooking(m); },

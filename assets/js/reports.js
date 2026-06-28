@@ -134,8 +134,9 @@
     bar.appendChild(seg);
     var spacer = U.el('<div style="margin-left:auto" class="row-flex"></div>');
     var csvBtn = U.el('<button class="btn sm">⬇ CSV</button>');
+    var pdfBtn = U.el('<button class="btn sm">⬇ PDF</button>');
     var printBtn = U.el('<button class="btn sm">🖨 Print</button>');
-    spacer.appendChild(csvBtn); spacer.appendChild(printBtn); bar.appendChild(spacer);
+    spacer.appendChild(csvBtn); spacer.appendChild(pdfBtn); spacer.appendChild(printBtn); bar.appendChild(spacer);
     mount.appendChild(bar);
 
     var host = U.el('<div id="reportArea"></div>');
@@ -147,6 +148,11 @@
       host.appendChild(U.el('<h3 style="margin:4px 0 12px">' + U.esc(rep.title) + ' <span class="muted" style="font-weight:400;font-size:12px">as on ' + U.fmtDate(Store.todayISO()) + "</span></h3>"));
       host.appendChild(reportTable(rep.headers, rep.rows, rep.opts));
       csvBtn.onclick = function () { csvDownload(rep.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase(), rep.headers, rep.rows); };
+      pdfBtn.onclick = function () {
+        if (!window.Pdf) { window.print(); return; }
+        var fn = rep.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".pdf";
+        Pdf.run(function () { return Pdf.tablePDF(Store.currentCompany(), rep.title, rep.headers, rep.rows, fn); }, function () { window.print(); });
+      };
       printBtn.onclick = function () { window.print(); };
       seg.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-r") === state.cur); });
     }
@@ -200,5 +206,62 @@
     table.appendChild(tb); wrap.appendChild(table); mount.appendChild(wrap);
   }
 
-  global.Reports = { renderReports: renderReports, renderApprovals: renderApprovals };
+  /* ---------- Group Overview (all companies & projects rolled up) ---------- */
+  function byCo(entity, coId) { return (Store.raw().records[entity] || []).filter(function (r) { return r.companyId === coId; }); }
+  function companyStats(co) {
+    var units = byCo("units", co.id);
+    var sold = units.filter(function (u) { return ["Booked", "Sold", "Registered"].indexOf(u.status) >= 0; });
+    var leads = byCo("leads", co.id);
+    return {
+      name: co.name,
+      projects: Store.listProjects(co.id).length,
+      units: units.length,
+      available: units.filter(function (u) { return u.status === "Available"; }).length,
+      salesValue: sold.reduce(function (s, u) { return s + (Number(u.price) || 0); }, 0),
+      receivables: byCo("payments", co.id).filter(function (p) { return p.status !== "Paid"; }).reduce(function (s, p) { return s + (Number(p.amount) || 0); }, 0),
+      payables: byCo("creditors", co.id).reduce(function (s, c) { return s + (Number(c.outstanding) || 0); }, 0) + byCo("vendors", co.id).reduce(function (s, v) { return s + (Number(v.outstanding) || 0); }, 0),
+      leads: leads.length,
+      openLeads: leads.filter(function (l) { return ["New", "Contacted", "Site Visit", "Negotiation"].indexOf(l.stage) >= 0; }).length
+    };
+  }
+
+  function renderGroup(mount) {
+    mount.innerHTML = "";
+    mount.appendChild(U.pageHead("Group Overview", "All companies & projects, rolled up into one view."));
+    var stats = Store.listCompanies().map(companyStats);
+    function sum(k) { return stats.reduce(function (s, x) { return s + x[k]; }, 0); }
+
+    var kpis = U.el('<div class="cards grid-4"></div>');
+    kpis.appendChild(U.kpiCard("Companies", Store.listCompanies().length, sum("projects") + " projects", "🏢"));
+    kpis.appendChild(U.kpiCard("Total Units", sum("units"), sum("available") + " available", "🏗️"));
+    kpis.appendChild(U.kpiCard("Sales Booked", U.inrShort(sum("salesValue")), "across all projects", "📈"));
+    kpis.appendChild(U.kpiCard("Open Leads", sum("openLeads"), sum("leads") + " total", "🎯"));
+    mount.appendChild(kpis);
+
+    var kpis2 = U.el('<div class="cards grid-2" style="margin-top:16px"></div>');
+    kpis2.appendChild(U.kpiCard("Total Receivables", U.inrShort(sum("receivables")), "money owed to the group", "📥"));
+    kpis2.appendChild(U.kpiCard("Total Payables", U.inrShort(sum("payables")), "money the group owes", "📤"));
+    mount.appendChild(kpis2);
+
+    // sales by company bar chart
+    var maxSales = Math.max.apply(null, stats.map(function (s) { return s.salesValue; }).concat([1]));
+    var chart = U.el('<div class="card" style="margin-top:16px"><h3>Sales Booked by Company</h3></div>');
+    stats.forEach(function (s) {
+      chart.appendChild(U.el('<div class="bar-row"><div class="bar-label">' + U.esc(s.name.split(" ")[0]) + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (s.salesValue / maxSales * 100) + '%"></div></div><div class="bar-val">' + U.inrShort(s.salesValue) + "</div></div>"));
+    });
+    mount.appendChild(chart);
+
+    // per-company table
+    var wrap = U.el('<div class="table-wrap" style="margin-top:16px"></div>');
+    var table = U.el('<table class="data"></table>');
+    table.appendChild(U.el('<thead><tr><th>Company</th><th class="num">Projects</th><th class="num">Units</th><th class="num">Available</th><th class="num">Sales Booked</th><th class="num">Receivables</th><th class="num">Payables</th></tr></thead>'));
+    var tb = U.el("<tbody></tbody>");
+    stats.forEach(function (s) {
+      tb.appendChild(U.el('<tr><td><b>' + U.esc(s.name) + '</b></td><td class="num">' + s.projects + '</td><td class="num">' + s.units + '</td><td class="num">' + s.available + '</td><td class="num">' + U.inrShort(s.salesValue) + '</td><td class="num">' + U.inrShort(s.receivables) + '</td><td class="num">' + U.inrShort(s.payables) + "</td></tr>"));
+    });
+    tb.appendChild(U.el('<tr style="font-weight:700;background:var(--panel-2)"><td>TOTAL</td><td class="num">' + sum("projects") + '</td><td class="num">' + sum("units") + '</td><td class="num">' + sum("available") + '</td><td class="num">' + U.inrShort(sum("salesValue")) + '</td><td class="num">' + U.inrShort(sum("receivables")) + '</td><td class="num">' + U.inrShort(sum("payables")) + "</td></tr>"));
+    table.appendChild(tb); wrap.appendChild(table); mount.appendChild(wrap);
+  }
+
+  global.Reports = { renderReports: renderReports, renderApprovals: renderApprovals, renderGroup: renderGroup };
 })(window);

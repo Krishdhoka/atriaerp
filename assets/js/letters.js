@@ -197,9 +197,15 @@
 
       var btns = U.el('<div class="row-flex" style="margin-top:14px;flex-wrap:wrap"></div>');
       var printB = U.el('<button class="btn primary">🖨 Print</button>'); printB.onclick = function () { printLetter(tpl(), st.values); };
-      var dlB = U.el('<button class="btn">⬇ Download</button>'); dlB.onclick = function () { downloadLetter(tpl(), st.values); };
+      var pdfB = U.el('<button class="btn">⬇ PDF</button>');
+      pdfB.onclick = function () {
+        if (!window.Pdf) { downloadLetter(tpl(), st.values); return; }
+        var t = tpl(), fn = (t.type + "-" + (st.values.customer || st.values.bank || "letter")).replace(/[^a-z0-9]+/gi, "-") + ".pdf";
+        Pdf.run(function () { return Pdf.letterPDF(co(), proj() ? proj().name : "", t.name, renderBody(t.body, st.values), fn); }, function () { printLetter(t, st.values); });
+      };
+      var dlB = U.el('<button class="btn">⬇ HTML</button>'); dlB.onclick = function () { downloadLetter(tpl(), st.values); };
       var issueB = U.el('<button class="btn">✓ Issue & Save</button>'); issueB.onclick = function () { issue(tpl(), st.values); };
-      btns.appendChild(printB); btns.appendChild(dlB); btns.appendChild(issueB);
+      btns.appendChild(printB); btns.appendChild(pdfB); btns.appendChild(dlB); btns.appendChild(issueB);
       left.appendChild(btns);
     }
     function drawPreview() {
@@ -238,10 +244,16 @@
       tr.appendChild(U.el("<td>" + U.fmtDate(r.issueDate) + "</td>"));
       tr.appendChild(U.el('<td><span class="badge ' + (r.status === "Issued" ? "good" : "muted") + '">' + U.esc(r.status || "—") + "</span></td>"));
       var act = U.el('<td class="num"><div class="row-actions"></div></td>'); var box = act.querySelector(".row-actions");
-      var view = U.el('<button class="btn sm">View / Print</button>');
+      var view = U.el('<button class="btn sm">Print</button>');
       view.onclick = function () { reprint(r); };
+      var pdf = U.el('<button class="btn sm">⬇ PDF</button>');
+      pdf.onclick = function () {
+        if (!window.Pdf) { reprint(r); return; }
+        var fn = (r.type + "-" + (r.recipient || "letter")).replace(/[^a-z0-9]+/gi, "-") + ".pdf";
+        Pdf.run(function () { return Pdf.letterPDF(co(), "", r.type, r.body || "", fn); }, function () { reprint(r); });
+      };
       var del = U.el('<button class="btn sm danger">×</button>'); del.onclick = function () { Store.remove("letters", r.id); drawIssued(host); };
-      box.appendChild(view); box.appendChild(del); tr.appendChild(act); tb.appendChild(tr);
+      box.appendChild(view); box.appendChild(pdf); box.appendChild(del); tr.appendChild(act); tb.appendChild(tr);
     });
     table.appendChild(tb); wrap.appendChild(table); host.appendChild(wrap);
   }

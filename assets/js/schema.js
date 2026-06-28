@@ -541,6 +541,7 @@
   var NAV = [
     { group: "Overview", items: [
       { id: "dashboard", title: "Dashboard", icon: "📊", special: true },
+      { id: "group", title: "Group Overview", icon: "🌐", special: true },
       { id: "reports", title: "Reports & MIS", icon: "📈", special: true },
       { id: "approvals", title: "Approvals Inbox", icon: "📨", special: true }
     ]},
