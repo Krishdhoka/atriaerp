@@ -8,9 +8,10 @@ This is the pattern for *every* secret-key integration. Once you've done it once
 
 ## Integration #5 — Live GST lookup
 
-### Step 1 — Get a provider key (AppyFlow, free tier, self-serve)
-1. Go to **https://appyflow.in** → **Sign up** → verify your email.
-2. Open the **GST API** / dashboard → copy your **key_secret** (API key).
+### Step 1 — Get a provider key
+Use **either** provider (the function supports both):
+- **Surepass (recommended)** — https://surepass.io → sign up → dashboard → copy your **API token** (a long Bearer token). Secret name will be `SUREPASS_TOKEN`.
+- **AppyFlow (alternative)** — https://appyflow.in → sign up → copy your **key_secret**. Secret name will be `APPYFLOW_KEY`.
 
 ### Step 2 — Create the function in Supabase
 1. Supabase dashboard → left menu → **Edge Functions** → **Create a function** (or **Deploy a new function**).
@@ -20,9 +21,9 @@ This is the pattern for *every* secret-key integration. Once you've done it once
 
 ### Step 3 — Add the secret key
 1. Supabase → **Edge Functions** → **Manage secrets** (or **Project Settings → Edge Functions → Secrets**).
-2. Add a new secret:
-   - **Name:** `APPYFLOW_KEY`
-   - **Value:** the key_secret from Step 1
+2. Add a new secret (match your provider from Step 1):
+   - Surepass → **Name:** `SUREPASS_TOKEN` · **Value:** your token
+   - AppyFlow → **Name:** `APPYFLOW_KEY` · **Value:** your key_secret
 3. Save. (The function reads this securely — it's never exposed to users.)
 
 ### Step 4 — Use it
