@@ -120,14 +120,24 @@
   }
 
   function tallyBanner(entityKey, redraw) {
-    var integ = Store.raw().meta.integrations.tally;
-    var box = U.el('<div class="notice ' + (integ.connected ? "" : "warn") + '"><span class="ni">🔌</span><div style="flex:1"></div></div>');
+    var rows = Store.list(entityKey, { scope: "company" });
+    var fromTally = rows.filter(function (r) { return r.source === "Tally"; }).length;
+    var box = U.el('<div class="notice ' + (fromTally ? "" : "warn") + '"><span class="ni">🔌</span><div style="flex:1"></div></div>');
     var info = box.querySelector("div");
-    info.innerHTML = integ.connected
-      ? "Connected to <b>Tally</b> at " + U.esc(integ.host) + ". Last sync: " + (integ.lastSync ? U.fmtDate(integ.lastSync) : "—") + "."
-      : "<b>Tally not connected.</b> Showing locally entered ledgers. Connect Tally to auto-pull this list.";
-    var btn = U.el('<button class="btn sm">' + (integ.connected ? "Sync now" : "Connect & Sync") + "</button>");
-    btn.onclick = function () { Integrations.tallySync(entityKey, redraw); };
+    info.innerHTML = fromTally
+      ? "<b>" + fromTally + " ledger(s) synced from Tally.</b> Run the AtriaERP Tally Connector on your Tally PC anytime to refresh."
+      : "<b>Not yet synced from Tally.</b> Run the AtriaERP Tally Connector on your Tally PC to auto-pull Sundry " + (entityKey === "creditors" ? "Creditors" : "Debtors") + " here. (You can also add rows manually below.)";
+    var btn = U.el('<button class="btn sm">How to connect Tally</button>');
+    btn.onclick = function () {
+      var body = U.el('<div style="font-size:13.5px;line-height:1.6"></div>');
+      body.innerHTML = "<p style='margin-top:0'>Tally runs on your office PC, so a tiny <b>connector</b> on that PC pushes the data here.</p>" +
+        "<ol style='padding-left:18px'>" +
+        "<li>In TallyPrime: <b>F1 → Settings → Connectivity</b> → set <b>Server</b>, port <b>9000</b>. Keep Tally open.</li>" +
+        "<li>On the Tally PC, open <code>tools/tally-connector.ps1</code>, fill in your AtriaERP login + company name.</li>" +
+        "<li>Right-click it → <b>Run with PowerShell</b>. It syncs Creditors &amp; Debtors up here.</li>" +
+        "</ol><p>Full guide: <code>cloud/TALLY.md</code>. Run it anytime (or schedule it) to refresh.</p>";
+      U.Modal.open("Connect Tally", body);
+    };
     box.appendChild(btn);
     return box;
   }
