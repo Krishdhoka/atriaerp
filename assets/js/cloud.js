@@ -91,6 +91,19 @@
       .then(function (r) { if (!r.ok) throw new Error("Delete failed"); });
   }
 
+  // Call a deployed Supabase Edge Function (secure server-side proxy for secret-key APIs).
+  function invokeFunction(name, body) {
+    return fetch(base() + "/functions/v1/" + name, {
+      method: "POST", headers: authHeaders(), body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var j; try { j = JSON.parse(t); } catch (e) { j = { raw: t }; }
+        if (!r.ok) throw new Error(j.error || j.message || ("HTTP " + r.status));
+        return j;
+      });
+    });
+  }
+
   // Push an entire local DB to the cloud (one-time migration / seeding).
   function pushAll(db) {
     var ops = [];
@@ -106,6 +119,6 @@
     enabled: enabled, signIn: signIn, signOut: signOut, restoreSession: restoreSession,
     currentUser: currentUser, loadProfile: loadProfile, loadAll: loadAll,
     writeRecord: writeRecord, writeCompany: writeCompany, writeProject: writeProject, removeRecord: removeRecord,
-    pushAll: pushAll
+    pushAll: pushAll, invokeFunction: invokeFunction
   };
 })(window);

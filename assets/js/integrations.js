@@ -584,7 +584,7 @@
     // --- GSTIN / PAN verification (offline checksum, live now) ---
     var vCard = U.el('<div class="card" style="margin-top:16px"></div>');
     vCard.appendChild(U.el('<div class="spread"><h3 style="margin:0">🪪 GSTIN / PAN Verification</h3><span class="badge good">Live</span></div>'));
-    vCard.appendChild(U.el('<p class="muted" style="font-size:13px">Instantly checks the <b>format &amp; official checksum</b> — catches typos and fake numbers. Works now, free. <i>(Live government lookup of the registered name/address can be added later via a provider + backend.)</i></p>'));
+    vCard.appendChild(U.el('<p class="muted" style="font-size:13px">Instantly checks the <b>format &amp; official checksum</b> — catches typos and fake numbers. Works now, free.' + (window.Cloud && Cloud.enabled && Cloud.enabled() ? ' For the <b>registered legal name/address</b>, deploy the <code>gst-lookup</code> Edge Function (see cloud/EDGE-FUNCTIONS.md) — then a “Fetch live details” button appears after a valid GSTIN.' : ' <i>(Live government lookup needs cloud + a backend function.)</i>') + "</p>"));
     var vHost = U.el("<div></div>"); vCard.appendChild(vHost);
     if (window.Verify) Verify.renderQuick(vHost);
     mount.appendChild(vCard);

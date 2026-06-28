@@ -574,6 +574,19 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
       .then(function (r) { if (!r.ok) throw new Error("Delete failed"); });
   }
 
+  // Call a deployed Supabase Edge Function (secure server-side proxy for secret-key APIs).
+  function invokeFunction(name, body) {
+    return fetch(base() + "/functions/v1/" + name, {
+      method: "POST", headers: authHeaders(), body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var j; try { j = JSON.parse(t); } catch (e) { j = { raw: t }; }
+        if (!r.ok) throw new Error(j.error || j.message || ("HTTP " + r.status));
+        return j;
+      });
+    });
+  }
+
   // Push an entire local DB to the cloud (one-time migration / seeding).
   function pushAll(db) {
     var ops = [];
@@ -589,7 +602,7 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
     enabled: enabled, signIn: signIn, signOut: signOut, restoreSession: restoreSession,
     currentUser: currentUser, loadProfile: loadProfile, loadAll: loadAll,
     writeRecord: writeRecord, writeCompany: writeCompany, writeProject: writeProject, removeRecord: removeRecord,
-    pushAll: pushAll
+    pushAll: pushAll, invokeFunction: invokeFunction
   };
 })(window);
 
@@ -2580,7 +2593,7 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
     // --- GSTIN / PAN verification (offline checksum, live now) ---
     var vCard = U.el('<div class="card" style="margin-top:16px"></div>');
     vCard.appendChild(U.el('<div class="spread"><h3 style="margin:0">🪪 GSTIN / PAN Verification</h3><span class="badge good">Live</span></div>'));
-    vCard.appendChild(U.el('<p class="muted" style="font-size:13px">Instantly checks the <b>format &amp; official checksum</b> — catches typos and fake numbers. Works now, free. <i>(Live government lookup of the registered name/address can be added later via a provider + backend.)</i></p>'));
+    vCard.appendChild(U.el('<p class="muted" style="font-size:13px">Instantly checks the <b>format &amp; official checksum</b> — catches typos and fake numbers. Works now, free.' + (window.Cloud && Cloud.enabled && Cloud.enabled() ? ' For the <b>registered legal name/address</b>, deploy the <code>gst-lookup</code> Edge Function (see cloud/EDGE-FUNCTIONS.md) — then a “Fetch live details” button appears after a valid GSTIN.' : ' <i>(Live government lookup needs cloud + a backend function.)</i>') + "</p>"));
     var vHost = U.el("<div></div>"); vCard.appendChild(vHost);
     if (window.Verify) Verify.renderQuick(vHost);
     mount.appendChild(vCard);
@@ -4032,9 +4045,38 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
     var btn = U.el('<button class="btn primary" style="margin-top:6px">Verify</button>');
     host.appendChild(btn);
     var out = U.el("<div></div>"); host.appendChild(out);
-    function run() { out.innerHTML = ""; out.appendChild(resultNode(check(host.querySelector("#vk_type").value, host.querySelector("#vk_val").value))); }
+    function run() {
+      out.innerHTML = "";
+      var type = host.querySelector("#vk_type").value, val = host.querySelector("#vk_val").value;
+      var res = check(type, val);
+      out.appendChild(resultNode(res));
+      if (res.ok && type === "GSTIN" && window.Cloud && Cloud.enabled && Cloud.enabled()) {
+        var liveBtn = U.el('<button class="btn sm" style="margin-top:8px">🌐 Fetch live details (govt)</button>');
+        var liveOut = U.el("<div></div>");
+        liveBtn.onclick = function () { liveGst(res.value, liveBtn, liveOut); };
+        out.appendChild(liveBtn); out.appendChild(liveOut);
+      }
+    }
     btn.onclick = run;
     host.querySelector("#vk_val").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+  }
+
+  // Live GST lookup via the Supabase Edge Function "gst-lookup" (cloud mode only)
+  function liveGst(gstin, btn, outNode) {
+    if (!(window.Cloud && Cloud.invokeFunction)) { outNode.appendChild(resultNode({ ok: false, message: "Live lookup needs cloud mode" })); return; }
+    btn.disabled = true; btn.textContent = "Fetching…"; outNode.innerHTML = "";
+    Cloud.invokeFunction("gst-lookup", { gstin: gstin }).then(function (d) {
+      if (d && d.ok) {
+        var det = {};
+        [["Legal name", d.legalName], ["Trade name", d.tradeName], ["Status", d.status], ["Type", d.taxpayerType], ["Reg. date", d.registrationDate], ["Address", d.address]]
+          .forEach(function (p) { if (p[1]) det[p[0]] = p[1]; });
+        outNode.appendChild(resultNode({ ok: true, message: "Live GST details (from govt)", details: det }));
+      } else {
+        outNode.appendChild(resultNode({ ok: false, message: (d && d.error) || "Lookup failed" }));
+      }
+    }).catch(function (e) {
+      outNode.appendChild(resultNode({ ok: false, message: "Lookup failed: " + e.message + "  — is the gst-lookup function deployed & APPYFLOW_KEY set?" }));
+    }).then(function () { btn.disabled = false; btn.textContent = "🌐 Fetch live details (govt)"; });
   }
 
   // One-shot verify with a toast (for inline buttons)

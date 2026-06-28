@@ -76,9 +76,38 @@
     var btn = U.el('<button class="btn primary" style="margin-top:6px">Verify</button>');
     host.appendChild(btn);
     var out = U.el("<div></div>"); host.appendChild(out);
-    function run() { out.innerHTML = ""; out.appendChild(resultNode(check(host.querySelector("#vk_type").value, host.querySelector("#vk_val").value))); }
+    function run() {
+      out.innerHTML = "";
+      var type = host.querySelector("#vk_type").value, val = host.querySelector("#vk_val").value;
+      var res = check(type, val);
+      out.appendChild(resultNode(res));
+      if (res.ok && type === "GSTIN" && window.Cloud && Cloud.enabled && Cloud.enabled()) {
+        var liveBtn = U.el('<button class="btn sm" style="margin-top:8px">🌐 Fetch live details (govt)</button>');
+        var liveOut = U.el("<div></div>");
+        liveBtn.onclick = function () { liveGst(res.value, liveBtn, liveOut); };
+        out.appendChild(liveBtn); out.appendChild(liveOut);
+      }
+    }
     btn.onclick = run;
     host.querySelector("#vk_val").addEventListener("keydown", function (e) { if (e.key === "Enter") run(); });
+  }
+
+  // Live GST lookup via the Supabase Edge Function "gst-lookup" (cloud mode only)
+  function liveGst(gstin, btn, outNode) {
+    if (!(window.Cloud && Cloud.invokeFunction)) { outNode.appendChild(resultNode({ ok: false, message: "Live lookup needs cloud mode" })); return; }
+    btn.disabled = true; btn.textContent = "Fetching…"; outNode.innerHTML = "";
+    Cloud.invokeFunction("gst-lookup", { gstin: gstin }).then(function (d) {
+      if (d && d.ok) {
+        var det = {};
+        [["Legal name", d.legalName], ["Trade name", d.tradeName], ["Status", d.status], ["Type", d.taxpayerType], ["Reg. date", d.registrationDate], ["Address", d.address]]
+          .forEach(function (p) { if (p[1]) det[p[0]] = p[1]; });
+        outNode.appendChild(resultNode({ ok: true, message: "Live GST details (from govt)", details: det }));
+      } else {
+        outNode.appendChild(resultNode({ ok: false, message: (d && d.error) || "Lookup failed" }));
+      }
+    }).catch(function (e) {
+      outNode.appendChild(resultNode({ ok: false, message: "Lookup failed: " + e.message + "  — is the gst-lookup function deployed & APPYFLOW_KEY set?" }));
+    }).then(function () { btn.disabled = false; btn.textContent = "🌐 Fetch live details (govt)"; });
   }
 
   // One-shot verify with a toast (for inline buttons)
