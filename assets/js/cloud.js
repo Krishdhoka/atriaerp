@@ -46,6 +46,25 @@
       }).catch(function () { session.profile = { role: "admin", email: session.user.email, full_name: session.user.email }; });
   }
 
+  // Get a fresh access token using the refresh token (Supabase tokens expire ~hourly)
+  function refreshSession() {
+    if (!session || !session.refresh_token) return Promise.reject(new Error("No refresh token"));
+    return fetch(base() + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST", headers: { apikey: cfg.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || !j.access_token) throw new Error(j.error_description || j.msg || "Session refresh failed");
+        session.access_token = j.access_token;
+        if (j.refresh_token) session.refresh_token = j.refresh_token;
+        if (j.user) session.user = j.user;
+        persistSession();
+        return session;
+      });
+    });
+  }
+  function isAuthError(e) { return /jwt|expired|invalid|unauthor|401|refresh token/i.test(e && e.message || ""); }
+
   function persistSession() { try { localStorage.setItem("atriaerp.session", JSON.stringify(session)); } catch (e) {} }
   function restoreSession() {
     try { var raw = localStorage.getItem("atriaerp.session"); if (raw) { session = JSON.parse(raw); return session; } } catch (e) {}
@@ -117,6 +136,7 @@
 
   global.Cloud = {
     enabled: enabled, signIn: signIn, signOut: signOut, restoreSession: restoreSession,
+    refreshSession: refreshSession, isAuthError: isAuthError,
     currentUser: currentUser, loadProfile: loadProfile, loadAll: loadAll,
     writeRecord: writeRecord, writeCompany: writeCompany, writeProject: writeProject, removeRecord: removeRecord,
     pushAll: pushAll, invokeFunction: invokeFunction

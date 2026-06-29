@@ -529,6 +529,25 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
       }).catch(function () { session.profile = { role: "admin", email: session.user.email, full_name: session.user.email }; });
   }
 
+  // Get a fresh access token using the refresh token (Supabase tokens expire ~hourly)
+  function refreshSession() {
+    if (!session || !session.refresh_token) return Promise.reject(new Error("No refresh token"));
+    return fetch(base() + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST", headers: { apikey: cfg.SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || !j.access_token) throw new Error(j.error_description || j.msg || "Session refresh failed");
+        session.access_token = j.access_token;
+        if (j.refresh_token) session.refresh_token = j.refresh_token;
+        if (j.user) session.user = j.user;
+        persistSession();
+        return session;
+      });
+    });
+  }
+  function isAuthError(e) { return /jwt|expired|invalid|unauthor|401|refresh token/i.test(e && e.message || ""); }
+
   function persistSession() { try { localStorage.setItem("atriaerp.session", JSON.stringify(session)); } catch (e) {} }
   function restoreSession() {
     try { var raw = localStorage.getItem("atriaerp.session"); if (raw) { session = JSON.parse(raw); return session; } } catch (e) {}
@@ -600,6 +619,7 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
 
   global.Cloud = {
     enabled: enabled, signIn: signIn, signOut: signOut, restoreSession: restoreSession,
+    refreshSession: refreshSession, isAuthError: isAuthError,
     currentUser: currentUser, loadProfile: loadProfile, loadAll: loadAll,
     writeRecord: writeRecord, writeCompany: writeCompany, writeProject: writeProject, removeRecord: removeRecord,
     pushAll: pushAll, invokeFunction: invokeFunction
@@ -4685,7 +4705,10 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
     if (!(global.Cloud && Cloud.enabled && Cloud.enabled())) return;
     Cloud.loadAll().then(function (data) {
       Store.hydrateFromCloud(data); buildContextSelectors(); buildNav(); route(current);
-    }).catch(function (e) { console.warn("Refresh failed:", e.message); });
+    }).catch(function (e) {
+      if (Cloud.isAuthError(e)) Cloud.refreshSession().catch(function () {}); // keep the session alive in the background
+      else console.warn("Refresh failed:", e.message);
+    });
   }
 
   function boot() {
@@ -4697,21 +4720,30 @@ window.AtriaConfig.cloudEnabled = !!(window.AtriaConfig.SUPABASE_URL && window.A
       return;
     }
     // Cloud mode: require login, then load shared data
-    var go = function () {
+    var go = function (retried) {
       Cloud.loadAll().then(function (data) {
         Store.hydrateFromCloud(data);
         startUI();
         var secs = (global.AtriaConfig && AtriaConfig.POLL_SECONDS) || 30;
-        if (secs > 0) setInterval(refreshFromCloud, secs * 1000);
+        if (secs > 0 && !go._polling) { go._polling = true; setInterval(refreshFromCloud, secs * 1000); }
       }).catch(function (e) {
-        document.getElementById("content").innerHTML = '<div class="notice warn" style="margin:30px"><span class="ni">⚠️</span><div><b>Could not load cloud data.</b> ' + U.esc(e.message) + '<br>Check that the database tables were created (cloud/supabase-setup.sql).</div></div>';
+        if (Cloud.isAuthError(e)) {
+          if (!retried) {
+            // token expired — try a silent refresh once, else ask to log in again
+            Cloud.refreshSession().then(function () { go(true); }).catch(function () { Cloud.signOut(); Auth.showLogin(function () { go(false); }); });
+          } else {
+            Cloud.signOut(); Auth.showLogin(function () { go(false); });
+          }
+        } else {
+          document.getElementById("content").innerHTML = '<div class="notice warn" style="margin:30px"><span class="ni">⚠️</span><div><b>Could not load cloud data.</b> ' + U.esc(e.message) + '<br>Check your internet, or that the database tables were created (cloud/supabase-setup.sql).</div></div>';
+        }
       });
     };
     var session = Cloud.restoreSession();
     if (session && session.access_token) {
-      Cloud.loadProfile().then(go).catch(go);
+      Cloud.loadProfile().then(function () { go(false); }).catch(function () { go(false); });
     } else {
-      Auth.showLogin(go);
+      Auth.showLogin(function () { go(false); });
     }
   }
 
