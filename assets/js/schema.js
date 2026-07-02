@@ -570,8 +570,8 @@
       { entity: "debtors" },
       { id: "bank", title: "Bank Balances (Axis)", icon: "🏦", special: true },
       { id: "netbanking", title: "Net Banking Payments", icon: "🔁", special: true },
-      { entity: "gst" },
-      { entity: "tds" }
+      { id: "gst", title: "GST", icon: "🧾", special: true },
+      { id: "tds", title: "TDS", icon: "✂️", special: true }
     ]},
     { group: "Procurement & Projects", items: [
       { id: "vendorportal", title: "Vendor Portal", icon: "🌐", special: true },

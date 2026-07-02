@@ -27,6 +27,8 @@
     vendorportal: function (m) { Integrations.renderVendorPortal(m); },
     datamanager: function (m) { Integrations.renderDataManager(m); },
     settings: function (m) { Integrations.renderSettings(m); },
+    gst: function (m) { GstTds.renderGst(m); },
+    tds: function (m) { GstTds.renderTds(m); },
     setup: function (m) { Integrations.renderSetup(m); }
   };
 
